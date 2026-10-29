@@ -1,0 +1,51 @@
+name: commitlint
+
+# Commits must follow Conventional Commits (commitlint.config.ts). PRs also check the title, since
+# a squash merge uses it as the commit message.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Lint the PR's commits
+        if: github.event_name == 'pull_request'
+        run: bunx --bun commitlint --from "$BASE" --to "$HEAD" --verbose
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+      - name: Lint the PR title
+        if: github.event_name == 'pull_request'
+        run: printf '%s\n' "$TITLE" | bunx --bun commitlint --verbose
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+      - name: Lint the pushed commits
+        if: github.event_name == 'push'
+        run: |
+          # A new branch or a force push has no usable "before"; lint the head commit only
+          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git merge-base --is-ancestor "$BEFORE" "$AFTER"; then
+            bunx --bun commitlint --from "$BEFORE" --to "$AFTER" --verbose
+          else
+            bunx --bun commitlint --last --verbose
+          fi
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}

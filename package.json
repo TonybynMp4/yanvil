@@ -7,9 +7,13 @@
   "scripts": {
     "build": "sand build",
     "watch": "sand watch",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "prepare": "git config core.hooksPath .githooks",
+    "commitlint": "commitlint --from origin/main --to HEAD --verbose"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@types/bun": "^1.4.4",
     "sandstone-cli": "^2.6.9",
     "typescript": "^7.0.2"

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Conventional commits, see commitlint.config.ts. Enabled by `bun install` (the prepare script).
+exec bunx --bun commitlint --edit "$1"

@@ -35,6 +35,10 @@ Written in TypeScript with [Sandstone](https://sandstone.dev) 1.2 (which targets
   hand with a patch/minor/major bump, or on pushing a semver tag like `1.2.0` or `v1.2.0`) reruns
   those jobs, then publishes `yanvil-<tag>.zip` with `.github/release-notes.md` plus the commits
   since the previous version tag.
+- Commits: [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `test:`,
+  `ci:`, `docs:`, `chore:`...), checked by commitlint (`commitlint.config.ts`). `bun install` points
+  git at `.githooks/`, whose `commit-msg` hook runs it; `commitlint.yml` checks pushes to main, PR
+  commits and PR titles (squash merges use the title).
 - Sandstone docs: https://sandstone.dev, and the typed API in `node_modules/sandstone/src`.
 
 ## Sources of information
