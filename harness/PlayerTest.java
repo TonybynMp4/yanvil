@@ -73,9 +73,10 @@ public class PlayerTest {
         on(() -> cmd("give " + NAME + " minecraft:enchanted_book[minecraft:stored_enchantments={\"minecraft:unbreaking\":3}]"));
         step();
         // Every item has a default repair_cost of 0, so check that the stack doesn't override it
+        // (the patch lists only the stack's own components)
         check("enchanted book received", () -> book(Items.ENCHANTED_BOOK).isEmpty() ? 0 : 1, 1);
         check("enchanted book untouched",
-            () -> book(Items.ENCHANTED_BOOK).getComponentsPatch().get(DataComponents.REPAIR_COST) == null ? 1 : 0, 1);
+            () -> book(Items.ENCHANTED_BOOK).getComponentsPatch().toString().contains("repair_cost") ? 0 : 1, 1);
 
         // Outside a station, changing a priced item doesn't refire (no fix on every inventory change)
         on(() -> cmd("item modify entity " + NAME + " container.0 {type:\"minecraft:set_components\",components:{\"minecraft:repair_cost\":31}}"));
