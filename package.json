@@ -1,6 +1,5 @@
 {
   "name": "yanvil",
-  "version": "0.0.1",
   "description": "Fixed anvil prices instead of the prior-work penalty for Minecraft 26.3",
   "type": "module",
   "module": "src/index.ts",
@@ -11,7 +10,7 @@
     "typecheck": "tsc -p ."
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "^1.4.4",
     "sandstone-cli": "^2.6.9",
     "typescript": "^7.0.2"
   },

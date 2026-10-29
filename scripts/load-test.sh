@@ -2,30 +2,28 @@
 # Boots a 26.3 server with the built datapack, prices armor on a mannequin (the per-slot logic
 # without a real player), and fails on any load or runtime error. scripts/player-test.sh covers
 # the advancements and the anvil with a mock player.
-# Usage: scripts/load-test.sh [workdir]   (needs Java 25 on PATH and a built .sandstone/output)
+# Usage: scripts/load-test.sh   (needs Java 25 and a built .sandstone/output; WORKDIR sets the scratch
+# dir, default /tmp/yanvil-ci, and PACK the datapack folder)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 . scripts/lib/check-log.sh
+. scripts/lib/server-jar.sh
 PACK=${PACK:-$PWD/.sandstone/output/datapack}
-DIR=${1:-/tmp/yanvil-ci}
-JAR_URL=https://piston-data.mojang.com/v1/objects/33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c/server.jar
-JAR_SHA1=33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c
+DIR=${WORKDIR:-/tmp/yanvil-ci}
 
 [ -f "$PACK/pack.mcmeta" ] || { echo "no built datapack, run the build first"; exit 1; }
 mkdir -p "$DIR"; cd "$DIR"
-if ! echo "$JAR_SHA1  server.jar" | sha1sum -c --status 2>/dev/null; then
-  curl -fsSL -o server.jar "$JAR_URL"
-  echo "$JAR_SHA1  server.jar" | sha1sum -c --quiet
-fi
+fetch_server_jar
 rm -rf world log.txt
 mkdir -p world/datapacks
 cp -r "$PACK" world/datapacks/yanvil
 echo eula=true > eula.txt
 printf '%s\n' level-seed=12345 pause-when-empty-seconds=0 server-port=25598 > server.properties
 
-# Commands go in through a fifo; the server's stdout goes to log.txt
+# Commands go in through a fifo; the server's stdout goes to log.txt. timeout kills a server that
+# hangs instead of stopping
 rm -f in; mkfifo in
-java -Xmx2G -jar server.jar nogui < in > log.txt 2>&1 &
+timeout 600 java -Xmx2G -jar server.jar nogui < in > log.txt 2>&1 &
 PID=$!
 exec 3> in
 run() { printf '%s\n' "$@" >&3; }

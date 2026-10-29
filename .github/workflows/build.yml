@@ -1,7 +1,9 @@
 name: build
 
 on:
+  # Other branches build through their pull request, so a PR doesn't run everything twice
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
   workflow_call: # release.yml runs these jobs before publishing
@@ -12,7 +14,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A new commit on a PR replaces its running build; main and releases always finish
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -20,6 +23,7 @@ permissions:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -30,6 +34,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -50,6 +55,10 @@ jobs:
   load-test:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PACK: ${{ github.workspace }}/datapack
+      WORKDIR: /tmp/yanvil-ci
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -63,17 +72,10 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: /tmp/yanvil-ci/server.jar
-          key: server-jar-33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c
-      - run: scripts/load-test.sh /tmp/yanvil-ci
-        env:
-          PACK: ${{ github.workspace }}/datapack
-      # A mock player picks up items and uses an anvil
+          key: server-jar-${{ hashFiles('scripts/lib/server-jar.sh') }}
+      - run: scripts/load-test.sh
+      # A mock player picks up items and uses the anvil, grindstone, smithing and enchanting tables
       - run: scripts/player-test.sh
-        env:
-          PACK: ${{ github.workspace }}/datapack
-          WORKDIR: /tmp/yanvil-ci
-      # Fails if any anvil step would cost 40+ with the tier table
-      - run: scripts/anvil-costs.sh /tmp/yanvil-ci
       - if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -81,3 +83,17 @@ jobs:
           path: |
             /tmp/yanvil-ci/log.txt
             /tmp/yanvil-ci/run/log.txt
+
+  # Fails if any anvil step would cost 40+ with the tier table
+  costs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      WORKDIR: /tmp/yanvil-ci
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: /tmp/yanvil-ci/server.jar
+          key: server-jar-${{ hashFiles('scripts/lib/server-jar.sh') }}
+      - run: scripts/anvil-costs.sh

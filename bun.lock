@@ -8,7 +8,7 @@
         "sandstone": "~1.2.36",
       },
       "devDependencies": {
-        "@types/bun": "latest",
+        "@types/bun": "^1.4.4",
         "sandstone-cli": "^2.6.9",
         "typescript": "^7.0.2",
       },

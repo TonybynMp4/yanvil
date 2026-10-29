@@ -9,11 +9,11 @@ export default {
       packFormat: 121,
     },
   },
+  // Two resources with the same name are a bug in src/index.ts
   onConflict: {
-    default: 'warn',
+    default: 'throw',
   },
   namespace: 'yanvil',
   packUid: 'yanvil',
-  mcmeta: 'latest',
   saveOptions: {},
-} as SandstoneConfig
+} satisfies SandstoneConfig

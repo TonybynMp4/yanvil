@@ -13,13 +13,34 @@ const tmp = Objective.create('tmp', 'dummy')
 const busy = Objective.create('busy', 'dummy')
 const until = Objective.create('until', 'dummy')
 
-// One item tag per tier that isn't the default. Prefix x kind lists ids that don't exist
-// (wooden_helmet), so the entries are optional
-const tiers = Object.entries(config.tiers).filter(([, t]) => t.base !== config.default)
-for (const [name, tier] of tiers) {
-  Tag('item', `yanvil:tier/${name}`, tier.prefixes.flatMap((p) =>
-    config.kinds.map((k) => ({ id: `minecraft:${p}${k}`, required: false }))))
+// Every price must be a positive integer: an item priced 0 keeps the default repair_cost, so it
+// would look fresh and refire on every inventory change
+const bases: [string, number][] = [
+  ['default', config.default],
+  ...Object.entries(config.tiers).map(([name, t]): [string, number] => [name, t.base]),
+]
+for (const [name, base] of bases) {
+  if (!Number.isInteger(base) || base < 1) throw new Error(`tiers.json: ${name} base must be an integer >= 1`)
 }
+if (!Number.isInteger(config.perEnchantment) || config.perEnchantment < 0) {
+  throw new Error('tiers.json: perEnchantment must be an integer >= 0')
+}
+
+// Item ids of each tier: every prefix x kind. Some don't exist (wooden_helmet), so the tag entries
+// are optional. No id may be in two tiers, so the order of the tier checks below doesn't matter
+const tierIds = Object.entries(config.tiers).map(([name, t]) =>
+  [name, t, t.prefixes.flatMap((p) => config.kinds.map((k) => `minecraft:${p}${k}` as const))] as const)
+const owner = new Map<string, string>()
+for (const [name, , ids] of tierIds) {
+  for (const id of ids) {
+    if (owner.has(id)) throw new Error(`tiers.json: ${id} is in both ${owner.get(id)} and ${name}`)
+    owner.set(id, name)
+  }
+}
+
+// One item tag per tier that isn't priced like the default
+const tiers = tierIds.filter(([, t]) => t.base !== config.default)
+for (const [name, , ids] of tiers) Tag('item', `yanvil:tier/${name}`, ids.map((id) => ({ id, required: false })))
 
 Tag('block', 'yanvil:stations', [
   '#minecraft:anvil', 'minecraft:grindstone', 'minecraft:smithing_table', 'minecraft:enchanting_table',
@@ -85,7 +106,7 @@ const fresh = Advancement('fresh', {
     raw(`function ${fix}`)
     raw('advancement revoke @s only yanvil:fresh')
   }) },
-} as any)
+})
 
 // Opened an anvil, grindstone, smithing table or enchanting table: fix everything before it goes
 // in, then watch inventory changes for a while to catch what comes out (anvil results come out at
@@ -106,7 +127,7 @@ const station = Advancement('station', {
     raw(`scoreboard players add @s ${until} ${BUSY_WINDOW}`)
     raw('advancement revoke @s only yanvil:station')
   }) },
-} as any)
+})
 
 // While busy, any change to a durability item refixes. The flag clears on the first change that
 // fixes nothing once BUSY_WINDOW ticks have passed since the last fix
@@ -123,11 +144,12 @@ const busyAdv = Advancement('busy', {
   rewards: { function: MCFunction('on_busy', () => {
     raw(`function ${fix}`)
     raw(`execute store result score #now ${tmp} run time query gametime`)
-    raw(`execute if score #fixed ${tmp} matches 1.. store result score @s ${until} run scoreboard players add #now ${tmp} ${BUSY_WINDOW}`)
     raw(`execute if score #fixed ${tmp} matches 0 if score #now ${tmp} > @s ${until} run scoreboard players set @s ${busy} 0`)
+    raw(`execute if score #fixed ${tmp} matches 1.. run scoreboard players operation @s ${until} = #now ${tmp}`)
+    raw(`execute if score #fixed ${tmp} matches 1.. run scoreboard players add @s ${until} ${BUSY_WINDOW}`)
     raw('advancement revoke @s only yanvil:busy')
   }) },
-} as any)
+})
 
 MCFunction('load', () => {
   raw(`scoreboard players set #per ${tmp} ${config.perEnchantment}`)
