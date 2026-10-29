@@ -67,8 +67,17 @@ jobs:
       - run: scripts/load-test.sh /tmp/yanvil-ci
         env:
           PACK: ${{ github.workspace }}/datapack
+      # A mock player picks up items and uses an anvil
+      - run: scripts/player-test.sh
+        env:
+          PACK: ${{ github.workspace }}/datapack
+          WORKDIR: /tmp/yanvil-ci
+      # Fails if any anvil step would cost 40+ with the tier table
+      - run: scripts/anvil-costs.sh /tmp/yanvil-ci
       - if: always()
         uses: actions/upload-artifact@v7
         with:
           name: server-log
-          path: /tmp/yanvil-ci/log.txt
+          path: |
+            /tmp/yanvil-ci/log.txt
+            /tmp/yanvil-ci/run/log.txt
