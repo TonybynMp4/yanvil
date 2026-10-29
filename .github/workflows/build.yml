@@ -1,0 +1,74 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call: # release.yml runs these jobs before publishing
+    inputs:
+      pack-version:
+        description: Version shown in the pack's description (defaults to dev-<sha>)
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: PACK_VERSION="${PACK_VERSION:-dev-${GITHUB_SHA::7}}" bun run build
+        env:
+          PACK_VERSION: ${{ inputs.pack-version }}
+      # Downloads as a zip with pack.mcmeta at its root, ready to drop in
+      - uses: actions/upload-artifact@v7
+        with:
+          name: yanvil-datapack
+          path: .sandstone/output/datapack
+          if-no-files-found: error
+
+  # Boots a 26.3 server with the datapack and fails on any load or runtime error
+  load-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: yanvil-datapack
+          path: datapack
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: actions/cache@v6
+        with:
+          path: /tmp/yanvil-ci/server.jar
+          key: server-jar-33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c
+      - run: scripts/load-test.sh /tmp/yanvil-ci
+        env:
+          PACK: ${{ github.workspace }}/datapack
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-log
+          path: /tmp/yanvil-ci/log.txt
