@@ -311,7 +311,7 @@ public class PlayerTest {
 
     /** Steps until condition holds (checked on the server thread), for at most maxSteps steps */
     static void waitFor(BooleanSupplier condition, int maxSteps) throws Exception {
-        for (int i = 0; i < maxSteps && get(() -> condition.getAsBoolean()) == Boolean.FALSE; i++) step();
+        for (int i = 0; i < maxSteps && !get(condition::getAsBoolean); i++) step();
     }
 
     static void check(String name, Supplier<Integer> actual, int expected) throws Exception {
