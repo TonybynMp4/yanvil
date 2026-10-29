@@ -72,7 +72,8 @@ public class PlayerTest {
         // Enchanted books are left alone
         on(() -> cmd("give " + NAME + " minecraft:enchanted_book[minecraft:stored_enchantments={\"minecraft:unbreaking\":3}]"));
         step();
-        check("enchanted book untouched", () -> book(Items.ENCHANTED_BOOK).has(DataComponents.REPAIR_COST) ? 1 : 0, 0);
+        // (every item has a default repair_cost of 0, so check the value; yAnvil would set 5 + 1)
+        check("enchanted book untouched", () -> rcOf(Items.ENCHANTED_BOOK), 0);
 
         // Outside a station, changing a priced item doesn't refire (no fix on every inventory change)
         on(() -> cmd("item modify entity " + NAME + " container.0 {type:\"minecraft:set_components\",components:{\"minecraft:repair_cost\":31}}"));
