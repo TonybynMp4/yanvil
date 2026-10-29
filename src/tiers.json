@@ -1,0 +1,13 @@
+{
+  "$comment": "Shared by src/index.ts and scripts/anvil_costs.py. Price = tier base + perEnchantment x enchantment count. An item's tier is the first one with a prefix matching its id (with a kind, e.g. diamond_ + sword); anything else gets the default base.",
+  "perEnchantment": 1,
+  "default": 5,
+  "kinds": ["sword", "axe", "pickaxe", "shovel", "hoe", "spear", "helmet", "chestplate", "leggings", "boots"],
+  "tiers": {
+    "wood": { "base": 1, "prefixes": ["wooden_", "stone_", "leather_"] },
+    "copper": { "base": 2, "prefixes": ["copper_"] },
+    "iron": { "base": 3, "prefixes": ["iron_", "chainmail_", "golden_"] },
+    "diamond": { "base": 5, "prefixes": ["diamond_"] },
+    "netherite": { "base": 8, "prefixes": ["netherite_"] }
+  }
+}
