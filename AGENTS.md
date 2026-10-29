@@ -10,27 +10,31 @@ Written in TypeScript with [Sandstone](https://sandstone.dev) 1.2 (which targets
 - Typecheck: `bun run typecheck`
 - How it works: every item in `#minecraft:enchantable/durability` gets its `minecraft:repair_cost`
   pinned to `tier base + perEnchantment x enchantment count`. The tier table is
-  `src/tiers.json`, shared with `scripts/anvil_costs.py`; change prices only there. Enchanted books
-  and everything else stay vanilla. Three advancements trigger it (no tick loop):
+  `src/tiers.json`, shared with `scripts/anvil_costs.py`; change prices only there. The build fails
+  if two tiers share an item or a base isn't an integer >= 1. Enchanted books and everything else
+  stay vanilla. Three advancements trigger it (no tick loop):
   `fresh` (a durability item with no repair_cost enters the inventory), `station` (opened an anvil,
   grindstone, smithing table or enchanting table: fixes everything and sets `yanvil.busy`) and
   `busy` (any durability item change while busy; clears after 1200 idle ticks). Each reward runs
   `yanvil:fix` (one `slot/<slot>` function per player slot) and revokes its advancement last.
 - 26.3 formats: loot conditions and item modifiers use `type` (not `condition`/`function`), and
   advancement `player`/`location` conditions are one object, not a list.
+- Server tests and costs share `scripts/lib/` (the pinned server jar, the log filter) and a scratch
+  dir (`WORKDIR`, default `/tmp/yanvil-ci`).
 - Load test: `scripts/load-test.sh` boots a real 26.3 server with the built pack and prices armor
   on a mannequin (needs Java 25).
 - Player test: `scripts/player-test.sh` runs `harness/PlayerTest.java` in the server's JVM with a
-  mock player: pickups, opening an anvil, `/enchant`, two anvil combines, the busy flag clearing.
+  mock player: pickups, opening an anvil, `/enchant`, two anvil combines, the grindstone, a
+  netherite upgrade, the enchanting table, the busy flag clearing, `/reload`.
 - Costs: `scripts/anvil-costs.sh` extracts the vanilla enchantments from the server jar and runs
   `scripts/anvil_costs.py`: the cheapest way to fully enchant each item, vanilla vs yAnvil. It fails
-  if any yAnvil step would be 40+ ("Too Expensive"). Rerun it after changing `src/tiers.json` and
-  update the README tables.
+  if any yAnvil step or full repair would be 40+ ("Too Expensive"). Rerun it after changing
+  `src/tiers.json` and update the README tables.
 - CI: `.github/workflows/build.yml` typechecks, builds, load-tests, player-tests and checks costs
-  on every push/PR, and uploads the pack as an artifact. `release.yml` (run by hand with a
-  patch/minor/major bump, or on pushing a semver tag like `1.2.0` or `v1.2.0`) reruns those jobs,
-  then publishes `yanvil-<tag>.zip` with `.github/release-notes.md` plus the commits since the last
-  version tag.
+  on every push to main and every PR, and uploads the pack as an artifact. `release.yml` (run by
+  hand with a patch/minor/major bump, or on pushing a semver tag like `1.2.0` or `v1.2.0`) reruns
+  those jobs, then publishes `yanvil-<tag>.zip` with `.github/release-notes.md` plus the commits
+  since the previous version tag.
 - Sandstone docs: https://sandstone.dev, and the typed API in `node_modules/sandstone/src`.
 
 ## Sources of information

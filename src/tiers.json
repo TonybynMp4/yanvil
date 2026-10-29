@@ -1,5 +1,5 @@
 {
-  "$comment": "Shared by src/index.ts and scripts/anvil_costs.py. Price = tier base + perEnchantment x enchantment count. An item's tier is the first one with a prefix matching its id (with a kind, e.g. diamond_ + sword); anything else gets the default base.",
+  "$comment": "Shared by src/index.ts and scripts/anvil_costs.py. Price = tier base + perEnchantment x enchantment count. An item's tier is the one with a prefix matching its id (with a kind, e.g. diamond_ + sword); anything else gets the default base. No item may match two tiers, and every base must be an integer >= 1 (the build checks both).",
   "perEnchantment": 1,
   "default": 5,
   "kinds": ["sword", "axe", "pickaxe", "shovel", "hoe", "spear", "helmet", "chestplate", "leggings", "boots"],
