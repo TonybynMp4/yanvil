@@ -72,8 +72,10 @@ public class PlayerTest {
         // Enchanted books are left alone
         on(() -> cmd("give " + NAME + " minecraft:enchanted_book[minecraft:stored_enchantments={\"minecraft:unbreaking\":3}]"));
         step();
-        // (every item has a default repair_cost of 0, so check the value; yAnvil would set 5 + 1)
-        check("enchanted book untouched", () -> rcOf(Items.ENCHANTED_BOOK), 0);
+        // Every item has a default repair_cost of 0, so check that the stack doesn't override it
+        check("enchanted book received", () -> book(Items.ENCHANTED_BOOK).isEmpty() ? 0 : 1, 1);
+        check("enchanted book untouched",
+            () -> book(Items.ENCHANTED_BOOK).getComponentsPatch().get(DataComponents.REPAIR_COST) == null ? 1 : 0, 1);
 
         // Outside a station, changing a priced item doesn't refire (no fix on every inventory change)
         on(() -> cmd("item modify entity " + NAME + " container.0 {type:\"minecraft:set_components\",components:{\"minecraft:repair_cost\":31}}"));
@@ -162,7 +164,8 @@ public class PlayerTest {
     }
 
     static int rcOf(net.minecraft.world.item.Item item) {
-        return book(item).getOrDefault(DataComponents.REPAIR_COST, -1);
+        ItemStack s = book(item);
+        return s.isEmpty() ? -1 : s.getOrDefault(DataComponents.REPAIR_COST, 0);
     }
 
     static ItemStack book(net.minecraft.world.item.Item item) {

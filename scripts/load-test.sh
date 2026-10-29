@@ -5,6 +5,7 @@
 # Usage: scripts/load-test.sh [workdir]   (needs Java 25 on PATH and a built .sandstone/output)
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. scripts/lib/check-log.sh
 PACK=${PACK:-$PWD/.sandstone/output/datapack}
 DIR=${1:-/tmp/yanvil-ci}
 JAR_URL=https://piston-data.mojang.com/v1/objects/33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c/server.jar
@@ -80,8 +81,7 @@ grep -q 'Done (' log.txt || { echo 'server did not finish starting'; fail=1; }
 grep -q 'file/yanvil' log.txt || { echo 'datapack not enabled'; fail=1; }
 passed=$(grep -c 'Test passed' log.txt || true)
 [ "$passed" = "$CHECKS" ] || { echo "$passed of $CHECKS checks passed"; fail=1; }
-if grep -Ei '/(WARN|ERROR)\]|exception|failed|couldn.t|unknown or incomplete|incorrect argument|<--\[HERE\]' log.txt \
-  | grep -v "Can't keep up" | grep -v 'Ambiguity between arguments' | grep -v 'Test failed'; then
+if log_problems log.txt; then
   echo 'errors or warnings in the log (above)'; fail=1
 fi
 [ $fail = 0 ] && echo 'load test passed'

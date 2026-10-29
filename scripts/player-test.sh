@@ -5,6 +5,7 @@
 # Usage: scripts/player-test.sh   (needs Java 25 and a built .sandstone/output; WORKDIR sets the scratch dir)
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. scripts/lib/check-log.sh
 ROOT=$PWD
 PACK=${PACK:-$PWD/.sandstone/output/datapack}
 DIR=${WORKDIR:-/tmp/yanvil-player}
@@ -26,13 +27,12 @@ cp -r "$PACK" run/world/datapacks/yanvil
 cd run
 echo eula=true > eula.txt
 printf '%s\n' level-seed=12345 online-mode=false server-port=25596 > server.properties
-# Offline mode: the mock player has no Mojang session. Its startup banner is filtered below
+# Offline mode: the mock player has no Mojang session (log_problems skips the warning banner)
 # PlayerTest reaches into the server thread by reflection; it halts the JVM when done
 java -Xmx2G --add-opens java.base/java.lang=ALL-UNNAMED -cp "$DIR/classes:$CP" PlayerTest \
   < /dev/null > log.txt 2>&1 || true
 grep 'PLAYERTEST' log.txt || { tail -40 log.txt; echo 'player test did not run'; exit 1; }
-if grep -Ei '/(WARN|ERROR)\]|exception|<--\[HERE\]' log.txt | grep -v "Can't keep up" \
-  | grep -vE 'OFFLINE/INSECURE|authenticate usernames|hackers to connect|"online-mode"'; then
+if log_problems log.txt; then
   echo 'errors or warnings in the log (above)'; exit 1
 fi
 grep -q 'PLAYERTEST: FAIL' log.txt && { echo 'player test failed'; exit 1; }
