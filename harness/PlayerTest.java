@@ -85,10 +85,10 @@ public class PlayerTest {
         });
         step();
 
-        // A fresh diamond sword is priced at its tier base
+        // A fresh diamond sword is pinned at half its tier base, rounded up
         on(() -> cmd("give " + NAME + " minecraft:diamond_sword"));
         step();
-        check("fresh diamond sword costs 5", () -> rc(0), 5);
+        check("fresh diamond sword costs 5 / 2", () -> rc(0), 3);
 
         // Enchanted books are left alone
         on(() -> cmd("give " + NAME + " minecraft:enchanted_book[minecraft:stored_enchantments={\"minecraft:unbreaking\":3}]"));
@@ -105,43 +105,59 @@ public class PlayerTest {
 
         // Opening the anvil fixes everything before it goes in and marks the player busy
         open(ANVIL, AnvilMenu.class);
-        check("opening the anvil resets the price", () -> rc(0), 5);
+        check("opening the anvil resets the price", () -> rc(0), 3);
         check("busy flag set", () -> score("yanvil.busy"), 1);
 
-        // Adding an enchantment while busy updates the price
+        // Adding enchantments while busy updates the price
         on(() -> cmd("enchant " + NAME + " minecraft:sharpness 5"));
         step();
-        check("sharpness V: 5 + 1", () -> rc(0), 6);
+        check("sharpness V: (5 + 1) / 2", () -> rc(0), 3);
+        on(() -> cmd("enchant " + NAME + " minecraft:looting 3"));
+        step();
+        check("looting III: (5 + 2) / 2", () -> rc(0), 4);
 
-        // Anvil: sword + Unbreaking III book. Vanilla prices the result at 2 x 6 + 1; yAnvil resets
-        // it to 5 + 2 once it's back in the inventory. Repricing it pushes the end of the busy
-        // window to 1200 ticks from now
+        // Anvil: sword + Unbreaking III book (anvil_cost 2, 30% off: 1, half from a book, at least 1
+        // per level). Vanilla prices the result at 2 x 4 + 1; yAnvil resets it to (5 + 3) / 2 once
+        // it's back in the inventory. Repricing it pushes the end of the busy window to 1200 ticks
+        // from now
         on(() -> {
             cmd("execute store result score " + NAME + " yanvil.until run time query gametime");
             cmd("scoreboard players add " + NAME + " yanvil.until 100");
         });
         int until = get(() -> score("yanvil.until"));
-        anvilCombine("unbreaking", 6 + 3, 13, 7);
+        anvilCombine("unbreaking", book("unbreaking"), 4 + 3, 9, 4);
         check("a fix extends the busy window", () -> score("yanvil.until") - until > 1000 ? 1 : 0, 1);
-        // Same session, second book: Mending
+        // Same session, second book: Mending (anvil_cost 4, 30% off: 3, half from a book: 1)
         on(() -> cmd("give " + NAME + " minecraft:enchanted_book[minecraft:stored_enchantments={\"minecraft:mending\":1}]"));
         step();
-        anvilCombine("mending", 7 + 2, 15, 8);
+        anvilCombine("mending", book("mending"), 4 + 1, 9, 5);
+
+        // Item + item: the damaged sword + a Sharpness V, Unbreaking III sword. Both sides pay their
+        // pinned price (5 and (5 + 2) / 2), then the sacrifice's enchantments at the full discounted
+        // anvil_cost (Sharpness 1 x 5, Unbreaking 1 x 3) and 2 for the repair
+        on(() -> {
+            cmd("item modify entity " + NAME + " container.0 {type:\"minecraft:set_damage\",damage:-0.1,add:true}");
+            cmd("give " + NAME + " minecraft:diamond_sword[minecraft:enchantments={\"minecraft:sharpness\":5,\"minecraft:unbreaking\":3}]");
+        });
+        step();
+        int sacrifice = get(() -> otherSlotOf(Items.DIAMOND_SWORD));
+        check("sacrifice sword: (5 + 2) / 2", () -> rc(sacrifice), 4);
+        anvilCombine("sword", s -> s == player.getInventory().getItem(sacrifice), 5 + 4 + 5 + 3 + 2, 11, 5);
 
         // A netherite sword picked up mid-session is priced at netherite's base
         on(() -> cmd("give " + NAME + " minecraft:netherite_sword"));
         step();
-        check("fresh netherite sword costs 8", () -> rcOf(Items.NETHERITE_SWORD), 8);
+        check("fresh netherite sword costs 8 / 2", () -> rcOf(Items.NETHERITE_SWORD), 4);
 
         // Grindstone: a fully cleaned item comes out with no repair_cost and gets its base price back
         on(() -> cmd("give " + NAME + " minecraft:iron_sword[minecraft:enchantments={\"minecraft:sharpness\":3}]"));
         step();
-        check("enchanted iron sword: 3 + 1", () -> rcOf(Items.IRON_SWORD), 4);
+        check("enchanted iron sword: (3 + 1) / 2", () -> rcOf(Items.IRON_SWORD), 2);
         GrindstoneMenu grindstone = open(GRINDSTONE, GrindstoneMenu.class);
         quickMove(grindstone, menuIndex(slotOf(Items.IRON_SWORD), 3));
         check("grindstone result has no repair cost", () -> grindstone.getSlot(2).getItem().getOrDefault(DataComponents.REPAIR_COST, -1), 0);
         quickMove(grindstone, 2);
-        check("cleaned iron sword costs 3", () -> rcOf(Items.IRON_SWORD), 3);
+        check("cleaned iron sword costs 3 / 2", () -> rcOf(Items.IRON_SWORD), 2);
 
         // Smithing: the netherite upgrade keeps the diamond item's price, then gets netherite's
         on(() -> {
@@ -150,14 +166,14 @@ public class PlayerTest {
             cmd("give " + NAME + " minecraft:netherite_ingot");
         });
         step();
-        check("fresh diamond pickaxe costs 5", () -> rcOf(Items.DIAMOND_PICKAXE), 5);
+        check("fresh diamond pickaxe costs 5 / 2", () -> rcOf(Items.DIAMOND_PICKAXE), 3);
         SmithingMenu smithing = open(SMITHING_TABLE, SmithingMenu.class);
         for (Item item : new Item[]{Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, Items.DIAMOND_PICKAXE, Items.NETHERITE_INGOT}) {
             quickMove(smithing, menuIndex(slotOf(item), 4));
         }
-        check("smithing result keeps the diamond price", () -> smithing.getSlot(3).getItem().getOrDefault(DataComponents.REPAIR_COST, -1), 5);
+        check("smithing result keeps the diamond price", () -> smithing.getSlot(3).getItem().getOrDefault(DataComponents.REPAIR_COST, -1), 3);
         quickMove(smithing, 3);
-        check("netherite pickaxe costs 8", () -> rcOf(Items.NETHERITE_PICKAXE), 8);
+        check("netherite pickaxe costs 8 / 2", () -> rcOf(Items.NETHERITE_PICKAXE), 4);
 
         // Enchanting table: the enchantments it adds are counted once the item is back
         on(() -> {
@@ -165,7 +181,7 @@ public class PlayerTest {
             cmd("give " + NAME + " minecraft:lapis_lazuli 3");
         });
         step();
-        check("fresh iron axe costs 3", () -> rcOf(Items.IRON_AXE), 3);
+        check("fresh iron axe costs 3 / 2", () -> rcOf(Items.IRON_AXE), 2);
         EnchantmentMenu table = open(ENCHANTING_TABLE, EnchantmentMenu.class);
         quickMove(table, menuIndex(slotOf(Items.IRON_AXE), 2));
         quickMove(table, menuIndex(slotOf(Items.LAPIS_LAZULI), 2));
@@ -174,8 +190,8 @@ public class PlayerTest {
         step();
         quickMove(table, 0);
         check("enchanted iron axe has enchantments", () -> find(Items.IRON_AXE).getEnchantments().size() > 0 ? 1 : 0, 1);
-        check("enchanted iron axe: 3 + its enchantments",
-            () -> rcOf(Items.IRON_AXE) - find(Items.IRON_AXE).getEnchantments().size(), 3);
+        check("enchanted iron axe: (3 + its enchantments) / 2",
+            () -> rcOf(Items.IRON_AXE) - (3 + find(Items.IRON_AXE).getEnchantments().size() + 1) / 2, 0);
 
         // Busy clears on the first change that fixes nothing once the window has passed
         on(() -> {
@@ -185,14 +201,14 @@ public class PlayerTest {
         });
         step();
         check("busy flag clears when idle", () -> score("yanvil.busy"), 0);
-        check("sword keeps its price", () -> rc(0), 8);
+        check("sword keeps its price", () -> rc(0), 5);
 
         // Reloading the pack prices what's already in the inventory
         setStalePrice();
         check("stale price left alone after the busy window", () -> rc(0), 31);
         on(() -> cmd("reload"));
         waitFor(() -> rc(0) != 31, 200);
-        check("reload reprices the inventory", () -> rc(0), 8);
+        check("reload reprices the inventory", () -> rc(0), 5);
     }
 
     /** Sets the item in hotbar slot 0 to a stale vanilla price */
@@ -215,14 +231,25 @@ public class PlayerTest {
         return menu.cast(player.containerMenu);
     }
 
-    /** Shift-clicks the sword (hotbar 0) and the named book into the open anvil, checks the
-     *  vanilla result price and the level cost, then shift-clicks the result back */
-    static void anvilCombine(String ench, int cost, int vanillaRc, int price) throws Exception {
+    /** An enchanted book holding the named enchantment */
+    static Predicate<ItemStack> book(String ench) {
+        return s -> s.is(Items.ENCHANTED_BOOK)
+            && s.get(DataComponents.STORED_ENCHANTMENTS).keySet().stream().anyMatch(h -> h.getRegisteredName().equals("minecraft:" + ench));
+    }
+
+    /** The first inventory slot past hotbar 0 holding the item */
+    static int otherSlotOf(Item item) {
+        for (int i = 1; i < 36; i++) if (player.getInventory().getItem(i).is(item)) return i;
+        return -1;
+    }
+
+    /** Shift-clicks the sword (hotbar 0) and the sacrifice into the open anvil, checks the vanilla
+     *  result price and the level cost, then shift-clicks the result back */
+    static void anvilCombine(String ench, Predicate<ItemStack> sacrifice, int cost, int vanillaRc, int price) throws Exception {
         AnvilMenu menu = (AnvilMenu) player.containerMenu;
-        int bookSlot = get(() -> slotOf(s -> s.is(Items.ENCHANTED_BOOK)
-            && s.get(DataComponents.STORED_ENCHANTMENTS).keySet().stream().anyMatch(h -> h.getRegisteredName().equals("minecraft:" + ench))));
+        int rightSlot = get(() -> slotOf(sacrifice));
         quickMove(menu, menuIndex(0, 3));
-        quickMove(menu, menuIndex(bookSlot, 3));
+        quickMove(menu, menuIndex(rightSlot, 3));
         check(ench + ": anvil cost", menu::getCost, cost);
         check(ench + ": vanilla result price", () -> menu.getSlot(2).getItem().getOrDefault(DataComponents.REPAIR_COST, 0), vanillaRc);
         int levels = get(() -> player.experienceLevel);

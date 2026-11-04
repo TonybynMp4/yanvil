@@ -9,7 +9,10 @@ Written in TypeScript with [Sandstone](https://sandstone.dev) 1.2 (which targets
   (log in `.sandstone/`). `bun run watch` rebuilds on change.
 - Typecheck: `bun run typecheck`
 - How it works: every item in `#minecraft:enchantable/durability` gets its `minecraft:repair_cost`
-  pinned to `tier base + perEnchantment x enchantment count`. The tier table is
+  pinned to half its price, rounded up (price = `tier base + perEnchantment x enchantment count`),
+  so an item + item combine, which adds both sides' repair_cost, pays the price once. The pack also
+  overrides every vanilla enchantment with `anvil_cost` cut by `enchantmentDiscount` (rounded, at
+  least 1), from the vanilla copies in `src/vanilla/enchantment`. The tier table and discount are in
   `src/tiers.json`, shared with `scripts/anvil_costs.py`; change prices only there. The build fails
   if two tiers share an item or a base isn't an integer >= 1. Enchanted books and everything else
   stay vanilla. Three advancements trigger it (no tick loop):
@@ -27,9 +30,11 @@ Written in TypeScript with [Sandstone](https://sandstone.dev) 1.2 (which targets
   mock player: pickups, opening an anvil, `/enchant`, two anvil combines, the grindstone, a
   netherite upgrade, the enchanting table, the busy flag clearing, `/reload`.
 - Costs: `scripts/anvil-costs.sh` extracts the vanilla enchantments from the server jar and runs
-  `scripts/anvil_costs.py`: the cheapest way to fully enchant each item, vanilla vs yAnvil. It fails
-  if any yAnvil step or full repair would be 40+ ("Too Expensive"). Rerun it after changing
-  `src/tiers.json` and update the README tables.
+  `scripts/anvil_costs.py`: the cheapest way to fully enchant each item and the cost of merging two
+  fully enchanted copies, vanilla vs yAnvil. It fails if any yAnvil enchanting step or full repair
+  would be 40+ ("Too Expensive"), if a yAnvil merge costs more than vanilla's, or if
+  `src/vanilla/enchantment` differs from the jar (`UPDATE=1` refreshes it after a version bump).
+  Rerun it after changing `src/tiers.json` and update the README tables.
 - CI: `.github/workflows/build.yml` typechecks, builds, load-tests, player-tests and checks costs
   on every push to main and every PR, and uploads the pack as an artifact. `release.yml` (run by
   hand with a patch/minor/major bump, or on pushing a semver tag like `1.2.0` or `v1.2.0`) reruns
