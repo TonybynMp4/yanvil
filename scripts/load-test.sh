@@ -43,8 +43,9 @@ if kill -0 $PID 2>/dev/null; then
     sleep 1
     grep -q 'chunk loaded' log.txt && break
   done
-  # helmet: tier base, boots: base + 2 enchantments, a stale anvil price gets reset, the elytra
-  # is "everything else", and the enchanted book in the hand isn't a durability item
+  # Each pinned at half its price, rounded up. helmet: tier base, boots: base + 2 enchantments, a
+  # stale anvil price gets reset, the elytra is "everything else", and the enchanted book in the
+  # hand isn't a durability item
   run 'summon minecraft:mannequin 8 200 8 {Tags:["yanvil.test"],NoGravity:1b,Invulnerable:1b,equipment:{head:{id:"minecraft:diamond_helmet"},feet:{id:"minecraft:netherite_boots",components:{"minecraft:enchantments":{"minecraft:protection":4,"minecraft:unbreaking":3}}},legs:{id:"minecraft:leather_leggings",components:{"minecraft:repair_cost":31}},chest:{id:"minecraft:elytra"},mainhand:{id:"minecraft:enchanted_book",components:{"minecraft:stored_enchantments":{"minecraft:mending":1}}},offhand:{id:"minecraft:copper_sword",components:{"minecraft:enchantments":{"minecraft:sharpness":5}}}}}'
   # Entities in a freshly loaded chunk show up a few ticks later
   for _ in $(seq 30); do
@@ -54,11 +55,11 @@ if kill -0 $PID 2>/dev/null; then
   done
   run 'execute as @e[tag=yanvil.test] run function yanvil:fix'
   m='@e[tag=yanvil.test,limit=1]'
-  check "execute if items entity $m armor.head minecraft:diamond_helmet[minecraft:repair_cost=5]"
-  check "execute if items entity $m armor.feet minecraft:netherite_boots[minecraft:repair_cost=10]"
+  check "execute if items entity $m armor.head minecraft:diamond_helmet[minecraft:repair_cost=3]"
+  check "execute if items entity $m armor.feet minecraft:netherite_boots[minecraft:repair_cost=5]"
   check "execute if items entity $m armor.legs minecraft:leather_leggings[minecraft:repair_cost=1]"
-  check "execute if items entity $m armor.chest minecraft:elytra[minecraft:repair_cost=5]"
-  check "execute if items entity $m weapon.offhand minecraft:copper_sword[minecraft:repair_cost=3]"
+  check "execute if items entity $m armor.chest minecraft:elytra[minecraft:repair_cost=3]"
+  check "execute if items entity $m weapon.offhand minecraft:copper_sword[minecraft:repair_cost=2]"
   check "execute if items entity $m weapon.mainhand minecraft:enchanted_book[minecraft:repair_cost=0]"
   check 'execute if score #fixed yanvil.tmp matches 5'
   # Already priced: nothing changes the second time

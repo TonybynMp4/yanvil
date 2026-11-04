@@ -1,4 +1,5 @@
-import { Advancement, MCFunction, Objective, Tag, raw } from 'sandstone'
+import { readdirSync, readFileSync } from 'node:fs'
+import { Advancement, Enchantment, MCFunction, Objective, Tag, raw } from 'sandstone'
 import config from './tiers.json'
 
 // yAnvil: pins every durability item's repair_cost to a fixed price, so the anvil's prior-work
@@ -57,6 +58,18 @@ const SLOTS: [string, string][] = [
   ['weapon.offhand', 'equipment.offhand'],
 ]
 
+// Enchantments: the vanilla 26.3 definitions (src/vanilla/enchantment, checked against the server
+// jar by scripts/anvil-costs.sh) with anvil_cost cut by enchantmentDiscount. The anvil charges
+// anvil_cost per level of each enchantment on the right item, half (at least 1) from a book
+const discount = config.enchantmentDiscount
+if (!(discount >= 0 && discount < 1)) throw new Error('tiers.json: enchantmentDiscount must be in [0, 1)')
+const VANILLA = new URL('vanilla/enchantment/', import.meta.url)
+for (const file of readdirSync(VANILLA).filter((f) => f.endsWith('.json')).sort()) {
+  const json = JSON.parse(readFileSync(new URL(file, VANILLA), 'utf8'))
+  json.anvil_cost = Math.max(1, Math.round(json.anvil_cost * (1 - discount)))
+  Enchantment(`minecraft:${file.slice(0, -5)}`, json)
+}
+
 const set = MCFunction('set', () => {
   raw('$item modify entity @s $(slot) {type:"minecraft:set_components",components:{"minecraft:repair_cost":$(price)}}')
   raw(`scoreboard players add #fixed ${tmp} 1`)
@@ -73,6 +86,10 @@ const slotFns = SLOTS.map(([slot, path]) => {
     raw(`execute store result score #n ${tmp} run data get ${at}."minecraft:enchantments"`)
     if (config.perEnchantment !== 1) raw(`scoreboard players operation #n ${tmp} *= #per ${tmp}`)
     raw(`scoreboard players operation #price ${tmp} += #n ${tmp}`)
+    // Pin half the price, rounded up: combining two items adds both sides' repair_cost, so
+    // item + item pays the price once
+    raw(`scoreboard players add #price ${tmp} 1`)
+    raw(`scoreboard players operation #price ${tmp} /= #two ${tmp}`)
     raw(`execute store result score #rc ${tmp} run data get ${at}."minecraft:repair_cost"`)
     raw(`execute if score #rc ${tmp} = #price ${tmp} run return 0`)
     raw(`data modify storage yanvil:fix args.slot set value "${slot}"`)
@@ -153,6 +170,7 @@ const busyAdv = Advancement('busy', {
 
 MCFunction('load', () => {
   raw(`scoreboard players set #per ${tmp} ${config.perEnchantment}`)
+  raw(`scoreboard players set #two ${tmp} 2`)
   for (const adv of [fresh, station, busyAdv]) raw(`advancement revoke @a only ${adv}`)
   raw(`execute as @a run function ${fix}`)
 }, { runOnLoad: true })
