@@ -2,8 +2,9 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { Advancement, Enchantment, MCFunction, Objective, Tag, raw } from 'sandstone'
 import config from './tiers.json'
 
-// yAnvil: pins every durability item's repair_cost to a fixed price, so the anvil's prior-work
-// penalty never grows. Price = tier base + perEnchantment x enchantment count (src/tiers.json).
+// yAnvil: pins every durability item's repair_cost (its hidden cost) to half a fixed price, rounded
+// up, so the anvil's prior-work penalty never grows. Price = tier base + perEnchantment x
+// enchantment count (src/tiers.json).
 
 const DURABILITY = '#minecraft:enchantable/durability'
 /** Idle ticks after the last fix before the busy flag clears (see on_busy) */
@@ -127,7 +128,7 @@ const fresh = Advancement('fresh', {
 
 // Opened an anvil, grindstone, smithing table or enchanting table: fix everything before it goes
 // in, then watch inventory changes for a while to catch what comes out (anvil results come out at
-// 2 x price + 1)
+// 2 x hidden cost + 1)
 const station = Advancement('station', {
   criteria: {
     open: {
